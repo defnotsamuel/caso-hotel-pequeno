@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="es">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <title>Seguridad · Hotel Pequeño</title>
+        <link rel="stylesheet" href="styles.css" />
+    </head>
+    <body>
+        <nav>
+            <a href="index.html">Inicio</a><a href="datos.html">Base de datos</a
+            ><a href="seguridad.html">Seguridad</a>
+        </nav>
+        <main>
+            <h1>Seguridad: servidor FTP (vsftpd)</h1>
+            <section>
+                <h2>1. Instalación</h2>
+                <pre>
+sudo apt update &amp;&amp; sudo apt install vsftpd -y
+sudo systemctl enable --now vsftpd</pre
+                >
+            </section>
+            <section>
+                <h2>2. Cuentas y permisos en /var/www/html</h2>
+                <pre>
+sudo groupadd webteam
+sudo useradd -m -s /usr/sbin/nologin -G webteam integrante1   # repetir por integrante
+sudo passwd integrante1
+sudo chown -R root:webteam /var/www/html
+sudo chmod -R 2775 /var/www/html      # setgid: archivos nuevos heredan el grupo</pre
+                >
+                <p>
+                    Principio de mínimo privilegio: cuentas individuales
+                    (trazabilidad), sin shell de login, escritura solo para el
+                    grupo del equipo y sin acceso anónimo.
+                </p>
+            </section>
+            <section>
+                <h2>3. Configuración (/etc/vsftpd.conf)</h2>
+                <pre>
+anonymous_enable=NO
+local_enable=YES
+write_enable=YES
+local_umask=002
+chroot_local_user=YES
+allow_writeable_chroot=YES
+local_root=/var/www/html
+userlist_enable=YES
+userlist_file=/etc/vsftpd.userlist
+userlist_deny=NO
+ssl_enable=YES
+rsa_cert_file=/etc/ssl/certs/vsftpd.pem
+rsa_private_key_file=/etc/ssl/private/vsftpd.key
+force_local_logins_ssl=YES
+force_local_data_ssl=YES
+pasv_enable=YES
+pasv_min_port=40000
+pasv_max_port=40100</pre
+                >
+                <pre>
+sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/ssl/private/vsftpd.key -out /etc/ssl/certs/vsftpd.pem
+echo "integrante1" | sudo tee -a /etc/vsftpd.userlist   # solo estos usuarios pueden entrar
+sudo ufw allow 21/tcp &amp;&amp; sudo ufw allow 40000:40100/tcp
+sudo systemctl restart vsftpd</pre
+                >
+                <p class="mut">
+                    Con /etc/shells: agregar /usr/sbin/nologin si el cliente FTP
+                    rechaza cuentas sin shell válido.
+                </p>
+            </section>
+            <section>
+                <h2>4. Pruebas de acceso seguro</h2>
+                <table>
+                    <tr>
+                        <th>Prueba</th>
+                        <th>Resultado esperado</th>
+                        <th>Evidencia</th>
+                    </tr>
+                    <tr>
+                        <td>
+                            Login anónimo (<code>ftp servidor</code>, usuario
+                            anonymous)
+                        </td>
+                        <td>530 Login incorrect</td>
+                        <td>[captura]</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            Login con cuenta individual por FTPS (FileZilla,
+                            "FTP sobre TLS explícito")
+                        </td>
+                        <td>Conexión y listado de /var/www/html</td>
+                        <td>[captura]</td>
+                    </tr>
+                    <tr>
+                        <td>Login en texto plano sin TLS</td>
+                        <td>Rechazado (force_local_logins_ssl)</td>
+                        <td>[captura]</td>
+                    </tr>
+                    <tr>
+                        <td>Subir archivo y verlo en el navegador</td>
+                        <td>Visible en http://servidor/</td>
+                        <td>[captura]</td>
+                    </tr>
+                    <tr>
+                        <td>Intentar salir del directorio (cd ..)</td>
+                        <td>Sin acceso fuera de local_root (chroot)</td>
+                        <td>[captura]</td>
+                    </tr>
+                    <tr>
+                        <td>Usuario que no está en la userlist</td>
+                        <td>Acceso denegado</td>
+                        <td>[captura]</td>
+                    </tr>
+                </table>
+                <p class="mut">
+                    Reemplazar [captura] por las imágenes reales de las pruebas
+                    ejecutadas.
+                </p>
+            </section>
+        </main>
+    </body>
+</html>

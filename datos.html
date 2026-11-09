@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="es">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <title>Diseño de datos · Hotel Pequeño</title>
+        <link rel="stylesheet" href="styles.css" />
+    </head>
+    <body>
+        <nav>
+            <a href="index.html">Inicio</a><a href="datos.html">Base de datos</a
+            ><a href="seguridad.html">Seguridad</a>
+        </nav>
+        <main>
+            <h1>Diseño lógico de la base de datos</h1>
+            <section>
+                <h2>1. Análisis del requerimiento</h2>
+                <p>
+                    <strong>Entidades:</strong> el hotel necesita saber
+                    <em>qué habitaciones</em> tiene (12), <em>quiénes</em> se
+                    hospedan y <em>cuándo</em>. De ahí salen tres tablas:
+                    <code>habitaciones</code>, <code>huespedes</code> y
+                    <code>reservas</code>.
+                </p>
+                <p>
+                    <strong>Regla crítica:</strong> dos reservas activas de la
+                    misma habitación no pueden solaparse. Dos rangos [entrada,
+                    salida) se solapan si <code>entrada_A &lt; salida_B</code> y
+                    <code>salida_A &gt; entrada_B</code>. Entrar el mismo día en
+                    que otro huésped sale es válido.
+                </p>
+            </section>
+
+            <section>
+                <h2>2. Tablas, tipos y llaves</h2>
+                <h3>habitaciones</h3>
+                <table>
+                    <tr>
+                        <th>Campo</th>
+                        <th>Tipo</th>
+                        <th>Restricción</th>
+                    </tr>
+                    <tr>
+                        <td>id_habitacion</td>
+                        <td>INT</td>
+                        <td>PK, AUTO_INCREMENT</td>
+                    </tr>
+                    <tr>
+                        <td>numero</td>
+                        <td>TINYINT</td>
+                        <td>UNIQUE, NOT NULL, entre 1 y 12</td>
+                    </tr>
+                    <tr>
+                        <td>tipo</td>
+                        <td>ENUM('sencilla','doble','suite')</td>
+                        <td>NOT NULL</td>
+                    </tr>
+                    <tr>
+                        <td>capacidad</td>
+                        <td>TINYINT</td>
+                        <td>NOT NULL, &gt; 0</td>
+                    </tr>
+                    <tr>
+                        <td>precio_noche</td>
+                        <td>DECIMAL(8,2)</td>
+                        <td>NOT NULL, &gt; 0</td>
+                    </tr>
+                </table>
+                <h3>huespedes</h3>
+                <table>
+                    <tr>
+                        <th>Campo</th>
+                        <th>Tipo</th>
+                        <th>Restricción</th>
+                    </tr>
+                    <tr>
+                        <td>id_huesped</td>
+                        <td>INT</td>
+                        <td>PK, AUTO_INCREMENT</td>
+                    </tr>
+                    <tr>
+                        <td>nombre</td>
+                        <td>VARCHAR(100)</td>
+                        <td>NOT NULL</td>
+                    </tr>
+                    <tr>
+                        <td>documento</td>
+                        <td>VARCHAR(20)</td>
+                        <td>UNIQUE, NOT NULL</td>
+                    </tr>
+                    <tr>
+                        <td>telefono</td>
+                        <td>VARCHAR(20)</td>
+                        <td>NULL</td>
+                    </tr>
+                    <tr>
+                        <td>email</td>
+                        <td>VARCHAR(100)</td>
+                        <td>NULL</td>
+                    </tr>
+                </table>
+                <h3>reservas</h3>
+                <table>
+                    <tr>
+                        <th>Campo</th>
+                        <th>Tipo</th>
+                        <th>Restricción</th>
+                    </tr>
+                    <tr>
+                        <td>id_reserva</td>
+                        <td>INT</td>
+                        <td>PK, AUTO_INCREMENT</td>
+                    </tr>
+                    <tr>
+                        <td>id_habitacion</td>
+                        <td>INT</td>
+                        <td>FK → habitaciones.id_habitacion, NOT NULL</td>
+                    </tr>
+                    <tr>
+                        <td>id_huesped</td>
+                        <td>INT</td>
+                        <td>FK → huespedes.id_huesped, NOT NULL</td>
+                    </tr>
+                    <tr>
+                        <td>fecha_entrada</td>
+                        <td>DATE</td>
+                        <td>NOT NULL</td>
+                    </tr>
+                    <tr>
+                        <td>fecha_salida</td>
+                        <td>DATE</td>
+                        <td>
+                            NOT NULL, CHECK (fecha_salida &gt; fecha_entrada)
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>estado</td>
+                        <td>ENUM('activa','cancelada')</td>
+                        <td>DEFAULT 'activa'</td>
+                    </tr>
+                </table>
+            </section>
+
+            <section>
+                <h2>3. Relaciones</h2>
+                <pre>
+habitaciones 1 ────────&lt; N reservas N &gt;──────── 1 huespedes</pre
+                >
+                <ul>
+                    <li>
+                        Una habitación puede tener muchas reservas (en distintas
+                        fechas); cada reserva es de una sola habitación.
+                    </li>
+                    <li>
+                        Un huésped puede hacer muchas reservas; cada reserva
+                        pertenece a un huésped.
+                    </li>
+                    <li>
+                        <code>reservas</code> resuelve la relación muchos a
+                        muchos entre habitaciones y huéspedes y aporta atributos
+                        propios (fechas, estado).
+                    </li>
+                </ul>
+                <p>
+                    <strong>Normalización:</strong> cumple 3FN; ningún dato del
+                    huésped o la habitación se repite en <code>reservas</code>,
+                    solo sus llaves.
+                </p>
+            </section>
+
+            <section>
+                <h2>4. Cómo se evitan los duplicados</h2>
+                <ol>
+                    <li>
+                        <strong>Consulta de solapamiento</strong> antes de
+                        insertar.
+                    </li>
+                    <li>
+                        <strong>Transacción con bloqueo</strong> (<code
+                            >SELECT … FOR UPDATE</code
+                        >) para que dos reservas simultáneas no pasen la
+                        verificación a la vez.
+                    </li>
+                    <li>
+                        <strong>Trigger</strong> que rechaza el INSERT si hay
+                        choque, como última barrera (MySQL no tiene
+                        restricciones de exclusión por rango).
+                    </li>
+                </ol>
+                <pre>
+CREATE TABLE habitaciones (
+  id_habitacion INT AUTO_INCREMENT PRIMARY KEY,
+  numero TINYINT NOT NULL UNIQUE CHECK (numero BETWEEN 1 AND 12),
+  tipo ENUM('sencilla','doble','suite') NOT NULL,
+  capacidad TINYINT NOT NULL CHECK (capacidad &gt; 0),
+  precio_noche DECIMAL(8,2) NOT NULL CHECK (precio_noche &gt; 0)
+);
+CREATE TABLE huespedes (
+  id_huesped INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(100) NOT NULL,
+  documento VARCHAR(20) NOT NULL UNIQUE,
+  telefono VARCHAR(20), email VARCHAR(100)
+);
+CREATE TABLE reservas (
+  id_reserva INT AUTO_INCREMENT PRIMARY KEY,
+  id_habitacion INT NOT NULL,
+  id_huesped INT NOT NULL,
+  fecha_entrada DATE NOT NULL,
+  fecha_salida DATE NOT NULL,
+  estado ENUM('activa','cancelada') NOT NULL DEFAULT 'activa',
+  CHECK (fecha_salida &gt; fecha_entrada),
+  FOREIGN KEY (id_habitacion) REFERENCES habitaciones(id_habitacion),
+  FOREIGN KEY (id_huesped) REFERENCES huespedes(id_huesped)
+);
+DELIMITER //
+CREATE TRIGGER evitar_duplicadas BEFORE INSERT ON reservas
+FOR EACH ROW BEGIN
+  IF NEW.estado='activa' AND EXISTS (
+    SELECT 1 FROM reservas r
+    WHERE r.id_habitacion=NEW.id_habitacion AND r.estado='activa'
+      AND r.fecha_entrada &lt; NEW.fecha_salida AND r.fecha_salida &gt; NEW.fecha_entrada)
+  THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Habitación ya reservada en esas fechas';
+  END IF;
+END//
+DELIMITER ;</pre
+                >
+                <p class="mut">
+                    Consulta de disponibilidad: habitaciones sin reservas
+                    activas que se crucen con el rango pedido (<code
+                        >NOT EXISTS</code
+                    >
+                    con la misma condición de solapamiento).
+                </p>
+            </section>
+        </main>
+    </body>
+</html>
